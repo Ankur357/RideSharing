@@ -1,0 +1,87 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+  cloud:
+    gateway:
+      # Global default filters applied to all routes
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter: "#{@defaultRateLimiter}"
+            key-resolver: "#{@userKeyResolver}"
+
+      routes:
+        # ── User Service ──────────────────────────────────────────────────
+        - id: user-service-auth
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/register,/api/users/login
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@authRateLimiter}"    # stricter: 3 req/s for auth endpoints
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: user-service
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+
+        # ── Driver Service ────────────────────────────────────────────────
+        - id: driver-service-auth
+          uri: lb://driver-service
+          predicates:
+            - Path=/api/drivers/register,/api/drivers/login
+          filters:
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@authRateLimiter}"    # stricter: brute-force protection
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: driver-service
+          uri: lb://driver-service
+          predicates:
+            - Path=/api/drivers/**
+
+        # ── Ride Service ──────────────────────────────────────────────────
+        - id: ride-service
+          uri: lb://ride-service
+          predicates:
+            - Path=/api/rides/**
+
+        # ── Payment Service ───────────────────────────────────────────────
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+
+        # ── Pricing Service ───────────────────────────────────────────────
+        - id: pricing-service
+          uri: lb://pricing-service
+          predicates:
+            - Path=/api/pricing/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_HOST:localhost}:8761/eureka/
+
+jwt:
+  secret: ${JWT_SECRET:ridesharing-super-secret-jwt-key-minimum-256-bits}
+
+# Actuator for health checks and Prometheus metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always

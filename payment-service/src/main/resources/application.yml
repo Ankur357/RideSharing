@@ -1,0 +1,29 @@
+server:
+  port: 8084
+spring:
+  application:
+    name: payment-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/paymentdb
+    username: postgres
+    password: postgres
+  jpa:
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: localhost:9092
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+stripe:
+  secret-key: sk_test_YOUR_STRIPE_KEY_HERE
+  webhook-secret: whsec_YOUR_WEBHOOK_SECRET_HERE
+resilience4j:
+  circuitbreaker:
+    instances:
+      stripe:
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
